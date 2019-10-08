@@ -10,6 +10,7 @@ AMReX_buildInfo.cpp
 Backtrace.*
 *.vth
 *.sw[opqrs]
+*~
 
 ####################
 # AMReX data files #
