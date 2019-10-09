@@ -940,6 +940,16 @@ PhysicalParticleContainer::FieldGather (int lev,
             //
             pti.GetPosition(m_xp[thread_num], m_yp[thread_num], m_zp[thread_num]);
 
+	    Real* const AMREX_RESTRICT Bzpp = Bzp.dataPtr();
+	    Real* const AMREX_RESTRICT xpp = m_xp[thread_num].dataPtr();
+
+	    Real B0 = 100000.;
+
+	    amrex::ParallelFor(pti.numParticles(),
+			       [=] AMREX_GPU_DEVICE (long i) {
+				 Bzpp[i] = B0;
+			       });
+
             //
             // Field Gather
             //
@@ -1096,6 +1106,15 @@ PhysicalParticleContainer::Evolve (int lev,
             BL_PROFILE_VAR_START(blp_copy);
             pti.GetPosition(m_xp[thread_num], m_yp[thread_num], m_zp[thread_num]);
             BL_PROFILE_VAR_STOP(blp_copy);
+
+    	    Real* const AMREX_RESTRICT Bzpp = Bzp.dataPtr();
+
+	    Real B0 = 100000.;
+
+	    amrex::ParallelFor(pti.numParticles(),
+			       [=] AMREX_GPU_DEVICE (long i) {
+				 Bzpp[i] = B0;
+			       });
 
             if (rho) {
                 // Deposit charge before particle push, in component 0 of MultiFab rho.
@@ -1599,6 +1618,15 @@ PhysicalParticleContainer::PushP (int lev, Real dt,
             //
             pti.GetPosition(m_xp[thread_num], m_yp[thread_num], m_zp[thread_num]);
 
+   	    Real* const AMREX_RESTRICT Bzpp = Bzp.dataPtr();
+
+	    Real B0 = 100000.;
+
+	    amrex::ParallelFor(pti.numParticles(),
+			       [=] AMREX_GPU_DEVICE (long i) {
+				 Bzpp[i] = B0;
+			       });
+
             int e_is_nodal = Ex.is_nodal() and Ey.is_nodal() and Ez.is_nodal();
             FieldGather(pti, Exp, Eyp, Ezp, Bxp, Byp, Bzp,
                         &exfab, &eyfab, &ezfab, &bxfab, &byfab, &bzfab,
@@ -1615,7 +1643,7 @@ PhysicalParticleContainer::PushP (int lev, Real dt,
             const ParticleReal* const AMREX_RESTRICT Ezpp = Ezp.dataPtr();
             const ParticleReal* const AMREX_RESTRICT Bxpp = Bxp.dataPtr();
             const ParticleReal* const AMREX_RESTRICT Bypp = Byp.dataPtr();
-            const ParticleReal* const AMREX_RESTRICT Bzpp = Bzp.dataPtr();
+          //const ParticleReal* const AMREX_RESTRICT Bzpp = Bzp.dataPtr();
 
             // Loop over the particles and update their momentum
             const Real q = this->charge;
