@@ -947,7 +947,12 @@ PhysicalParticleContainer::FieldGather (int lev,
 
 	    amrex::ParallelFor(pti.numParticles(),
 			       [=] AMREX_GPU_DEVICE (long i) {
-				 Bzpp[i] = B0;
+				 if(xpp[i] >= 0){
+				   Bzpp[i] = B0*tanh((xpp[i]-(1e-5))/(4e-5/20));
+				 }
+				 else{
+				   Bzpp[i] = -B0*tanh((xpp[i]+(1e-5))/(4e-5/20));
+				 }
 			       });
 
             //
@@ -1108,12 +1113,18 @@ PhysicalParticleContainer::Evolve (int lev,
             BL_PROFILE_VAR_STOP(blp_copy);
 
     	    Real* const AMREX_RESTRICT Bzpp = Bzp.dataPtr();
+	    Real* const AMREX_RESTRICT xpp = m_xp[thread_num].dataPtr();
 
 	    Real B0 = 100000.;
 
 	    amrex::ParallelFor(pti.numParticles(),
 			       [=] AMREX_GPU_DEVICE (long i) {
-				 Bzpp[i] = B0;
+				 if(xpp[i] >= 0){
+				   Bzpp[i] = B0*tanh((xpp[i]-(1e-5))/(4e-5/20));
+				 }
+				 else{
+				   Bzpp[i] = -B0*tanh((xpp[i]+(1e-5))/(4e-5/20));
+				 }
 			       });
 
             if (rho) {
@@ -1619,12 +1630,18 @@ PhysicalParticleContainer::PushP (int lev, Real dt,
             pti.GetPosition(m_xp[thread_num], m_yp[thread_num], m_zp[thread_num]);
 
    	    Real* const AMREX_RESTRICT Bzpp = Bzp.dataPtr();
+	    Real* const AMREX_RESTRICT xpp = m_xp[thread_num].dataPtr();
 
 	    Real B0 = 100000.;
 
 	    amrex::ParallelFor(pti.numParticles(),
 			       [=] AMREX_GPU_DEVICE (long i) {
-				 Bzpp[i] = B0;
+				 if(xpp[i] >= 0){
+				   Bzpp[i] = B0*tanh((xpp[i]-(1e-5))/(4e-5/20));
+				 }
+				 else{
+				   Bzpp[i] = -B0*tanh((xpp[i]+(1e-5))/(4e-5/20));
+				 }
 			       });
 
             int e_is_nodal = Ex.is_nodal() and Ey.is_nodal() and Ez.is_nodal();
