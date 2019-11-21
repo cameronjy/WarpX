@@ -1015,18 +1015,18 @@ PhysicalParticleContainer::FieldGather (int lev,
             //
             pti.GetPosition(m_xp[thread_num], m_yp[thread_num], m_zp[thread_num]);
 
-	    Real* const AMREX_RESTRICT Bzpp = Bzp.dataPtr();
-	    Real* const AMREX_RESTRICT xpp = m_xp[thread_num].dataPtr();
+            ParticleReal* const AMREX_RESTRICT Bypp = Byp.dataPtr();
+            ParticleReal* const AMREX_RESTRICT xpp = m_xp[thread_num].dataPtr();
 
-	    Real B0 = 100000.;
+	    Real B0 = 0.4175177341;
 
 	    amrex::ParallelFor(pti.numParticles(),
 			       [=] AMREX_GPU_DEVICE (long i) {
 				 if(xpp[i] >= 0){
-				   Bzpp[i] = B0*tanh((xpp[i]-(1e-5))/(4e-5/20));
+                                     Bypp[i] = B0*tanh(xpp[i]-(3.6742*3)/(0.0408248291));
 				 }
 				 else{
-				   Bzpp[i] = -B0*tanh((xpp[i]+(1e-5))/(4e-5/20));
+				   Bypp[i] = -B0*tanh((xpp[i]+(3.6742*3))/(0.0408248291));
 				 }
 			       });
 
@@ -1188,18 +1188,18 @@ PhysicalParticleContainer::Evolve (int lev,
             pti.GetPosition(m_xp[thread_num], m_yp[thread_num], m_zp[thread_num]);
             BL_PROFILE_VAR_STOP(blp_copy);
 
-    	    Real* const AMREX_RESTRICT Bzpp = Bzp.dataPtr();
-	    Real* const AMREX_RESTRICT xpp = m_xp[thread_num].dataPtr();
+            ParticleReal* const AMREX_RESTRICT Bypp = Byp.dataPtr();
+	    ParticleReal* const AMREX_RESTRICT xpp = m_xp[thread_num].dataPtr();
 
-	    Real B0 = 100000.;
+	    Real B0 = 0.4175177341;
 
 	    amrex::ParallelFor(pti.numParticles(),
 			       [=] AMREX_GPU_DEVICE (long i) {
 				 if(xpp[i] >= 0){
-				   Bzpp[i] = B0*tanh((xpp[i]-(1e-5))/(4e-5/20));
+				   Bypp[i] = B0*tanh((xpp[i]-(3.6742*3))/(0.0408248291));
 				 }
 				 else{
-				   Bzpp[i] = -B0*tanh((xpp[i]+(1e-5))/(4e-5/20));
+				   Bypp[i] = -B0*tanh((xpp[i]+(3.6742*3))/(0.0408248291));
 				 }
 			       });
 
@@ -1735,21 +1735,21 @@ PhysicalParticleContainer::PushP (int lev, Real dt,
             //
             pti.GetPosition(m_xp[thread_num], m_yp[thread_num], m_zp[thread_num]);
 
-   	    Real* const AMREX_RESTRICT Bzpp = Bzp.dataPtr();
-	    Real* const AMREX_RESTRICT xpp = m_xp[thread_num].dataPtr();
+            ParticleReal* const AMREX_RESTRICT Bypp = Byp.dataPtr();
+	    ParticleReal* const AMREX_RESTRICT xpp = m_xp[thread_num].dataPtr();
 
-	    Real B0 = 100000.;
+	    Real B0 = 0.4175177341;
 
 	    amrex::ParallelFor(pti.numParticles(),
 			       [=] AMREX_GPU_DEVICE (long i) {
 				 if(xpp[i] >= 0){
-				   Bzpp[i] = B0*tanh((xpp[i]-(1e-5))/(4e-5/20));
+				   Bypp[i] = B0*tanh((xpp[i]-(3.6742*3))/(0.0408248291));
 				 }
 				 else{
-				   Bzpp[i] = -B0*tanh((xpp[i]+(1e-5))/(4e-5/20));
+				   Bypp[i] = -B0*tanh((xpp[i]+(3.6742*3))/(0.0408248291));
 				 }
 			       });
-
+            
             int e_is_nodal = Ex.is_nodal() and Ey.is_nodal() and Ez.is_nodal();
             FieldGather(pti, Exp, Eyp, Ezp, Bxp, Byp, Bzp,
                         &exfab, &eyfab, &ezfab, &bxfab, &byfab, &bzfab,
@@ -1765,8 +1765,8 @@ PhysicalParticleContainer::PushP (int lev, Real dt,
             const ParticleReal* const AMREX_RESTRICT Eypp = Eyp.dataPtr();
             const ParticleReal* const AMREX_RESTRICT Ezpp = Ezp.dataPtr();
             const ParticleReal* const AMREX_RESTRICT Bxpp = Bxp.dataPtr();
-            const ParticleReal* const AMREX_RESTRICT Bypp = Byp.dataPtr();
-          //const ParticleReal* const AMREX_RESTRICT Bzpp = Bzp.dataPtr();
+          //const ParticleReal* const AMREX_RESTRICT Bypp = Byp.dataPtr();
+            const ParticleReal* const AMREX_RESTRICT Bzpp = Bzp.dataPtr();
 
             // Loop over the particles and update their momentum
             const Real q = this->charge;
