@@ -440,8 +440,8 @@ void PlasmaInjector::parseMomentum (ParmParse& pp)
 	if (!pp.query("cell_size", cellSize)){
 	    amrex::Abort("You mnust enter a cell size with '<s_name>.cell_size =' !");
 	}
-	if (!pp.query("xcs", xcs)){
-	    amrex::Abort("You must enter a cell size with '<s_name>.xcs =' !");
+	if (!pp.query("zcs", zcs)){
+	    amrex::Abort("You must enter a cell size with '<s_name>.zcs =' !");
 	}
 
 	int count = 0;
@@ -510,7 +510,7 @@ void PlasmaInjector::parseMomentum (ParmParse& pp)
             amrex::Abort(direction.c_str());
         }
         // Construct InjectorMomentum with InjectorMomentumBoltzmann.
-        inj_mom.reset(new InjectorMomentum((InjectorMomentumBoltzmann*)nullptr, sigma, lambdae, beta, nbnd, delta, xcs, cellSize, dir, cellCentered));
+        inj_mom.reset(new InjectorMomentum((InjectorMomentumBoltzmann*)nullptr, sigma, lambdae, beta, nbnd, delta, zcs, cellSize, dir, cellCentered));
     } else if (mom_dist_s == "maxwell_juttner"){
 
 	std::string direction = "x";
@@ -519,13 +519,13 @@ void PlasmaInjector::parseMomentum (ParmParse& pp)
 	pp.query("bulk_vel_dir", direction);
 	pp.query("cell_centered", cellCentered);
 
-	Real sigma, lambdae, nbnd, cellSize, xcs, beta, delta, dir;
+	Real sigma, lambdae, nbnd, cellSize, zcs, beta, delta, dir;
 	
 	if (!pp.query("cell_size", cellSize)){
 	    amrex::Abort("You must enter a cell size with '<s_name>.cell_size =' !");
 	}
-	if (!pp.query("xcs", xcs)){
-	    amrex::Abort("You must enter a cell size with '<s_name>.xcs =' !");
+	if (!pp.query("zcs", zcs)){
+	    amrex::Abort("You must enter a cell size with '<s_name>.zcs =' !");
 	}
 
 	int count = 0;
@@ -595,7 +595,7 @@ void PlasmaInjector::parseMomentum (ParmParse& pp)
             amrex::Abort(direction.c_str());
         }
         // Construct InjectorMomentum with InjectorMomentumJuttner.
-        inj_mom.reset(new InjectorMomentum((InjectorMomentumJuttner*)nullptr, sigma, lambdae, beta, nbnd, delta, xcs, cellSize, dir, cellCentered));
+        inj_mom.reset(new InjectorMomentum((InjectorMomentumJuttner*)nullptr, sigma, lambdae, beta, nbnd, delta, zcs, cellSize, dir, cellCentered));
     } else if (mom_dist_s == "radial_expansion") {
         Real u_over_r = 0.;
         pp.query("u_over_r", u_over_r);

@@ -80,8 +80,8 @@ struct InjectorMomentumBoltzmann
     // the temperature parameter theta,
     // boost velocity/c beta,
     // and boost direction dir respectively.
-    InjectorMomentumBoltzmann(amrex::Real s, amrex::Real l, amrex::Real b, amrex::Real n, amrex::Real de ,amrex::Real x, amrex::Real c, int di, bool cc) noexcept
-        : sigma(s), lambdae(l), beta0(b), nbnd(n), delta(de), xcs(x), cellSize(c), dir(di), cellCentered(cc)
+    InjectorMomentumBoltzmann(amrex::Real s, amrex::Real l, amrex::Real b, amrex::Real n, amrex::Real de ,amrex::Real z, amrex::Real c, int di, bool cc) noexcept
+        : sigma(s), lambdae(l), beta0(b), nbnd(n), delta(de), zcs(z), cellSize(c), dir(di), cellCentered(cc)
         {}
 
     AMREX_GPU_HOST_DEVICE
@@ -90,39 +90,39 @@ struct InjectorMomentumBoltzmann
     {
         // Sobol method for sampling MJ Speeds,
         // from Zenitani 2015 (Phys. Plasmas 22, 042116).
-        amrex::Real x1, x2, gamma, theta, beta;
+        amrex::Real z1, z2, gamma, theta, beta;
 	amrex::Real vave;
         amrex::Real u [3];
 	if(cellCentered)
 	{
-	    // x1 = (std::floor(x*1/cellSize)+0.5)*cellSize;
-	    x1 = (std::trunc(x*1/cellSize+0.5*x/std::abs(x)))*cellSize;
+	    // z1 = (std::floor(z*1/cellSize)+0.5)*cellSize;
+	    z1 = (std::trunc(z*1/cellSize+0.5*z/std::abs(z)))*cellSize;
 	}
 	else
 	{
-	    x1 = x;
+	    z1 = z;
 	}
-	beta = -1 * beta0 * (std::pow(std::cosh( (x1 + xcs) / delta ),-1) - std::pow(std::cosh( (x1 - xcs) / delta ),-1));
-	// theta = sigma/4. * ( 51./50. - std::pow( -1. - std::tanh((x1 - xcs) / delta) + std::tanh((x1 + xcs) / delta) , 2 ) ) /
-	//     ( ( 1. + 4.*( std::pow( std::cosh((x1 + xcs) / delta), -1 )  + std::pow( std::cosh((x1 - xcs) / delta), -1 ) ) ) *
-	//       std::pow( 1. - std::pow(beta0 * (std::pow(std::cosh( (x1 + xcs) / delta ), -1 ) - std::pow(std::cosh( (x1 - xcs) / delta ), -1 ) ), 2 ), 0.5 ) );
+	beta = -1 * beta0 * (std::pow(std::cosh( (z1 + zcs) / delta ),-1) - std::pow(std::cosh( (z1 - zcs) / delta ),-1));
+	// theta = sigma/4. * ( 51./50. - std::pow( -1. - std::tanh((z1 - zcs) / delta) + std::tanh((z1 + zcs) / delta) , 2 ) ) /
+	//     ( ( 1. + 4.*( std::pow( std::cosh((z1 + zcs) / delta), -1 )  + std::pow( std::cosh((z1 - zcs) / delta), -1 ) ) ) *
+	//       std::pow( 1. - std::pow(beta0 * (std::pow(std::cosh( (z1 + zcs) / delta ), -1 ) - std::pow(std::cosh( (z1 - zcs) / delta ), -1 ) ), 2 ), 0.5 ) );
 	theta = sigma/4. * (51./50.
-			    - std::pow( - ( 2./(M_PI/2.+5.-1.) ) * (std::atan(std::tanh((x1+xcs)/2./delta)) - std::atan(std::tanh((x1-xcs)/2./delta)) - M_PI/4.
-								+ (5. - 1.) / 2. * (std::tanh((x1+xcs)/delta) - std::tanh((x1-xcs)/delta) - 1.)) , 2 ))
-	    /( ( 1. + 4.*( std::pow( std::cosh((x1 + xcs) / delta), -1 )  + std::pow( std::cosh((x1 - xcs) / delta), -1 ) ) ) *
-	       std::pow( 1. - std::pow(beta0 * (std::pow(std::cosh( (x1 + xcs) / delta ), -1 ) - std::pow(std::cosh( (x1 - xcs) / delta ), -1 ) ), 2), 0.5 ) );
+			    - std::pow( - ( 2./(M_PI/2.+5.-1.) ) * (std::atan(std::tanh((z1+zcs)/2./delta)) - std::atan(std::tanh((z1-zcs)/2./delta)) - M_PI/4.
+								+ (5. - 1.) / 2. * (std::tanh((z1+zcs)/delta) - std::tanh((z1-zcs)/delta) - 1.)) , 2 ))
+	    /( ( 1. + 4.*( std::pow( std::cosh((z1 + zcs) / delta), -1 )  + std::pow( std::cosh((z1 - zcs) / delta), -1 ) ) ) *
+	       std::pow( 1. - std::pow(beta0 * (std::pow(std::cosh( (z1 + zcs) / delta ), -1 ) - std::pow(std::cosh( (z1 - zcs) / delta ), -1 ) ), 2), 0.5 ) );
 
 	// theta = sigma/200;
 
 	vave = std::sqrt(2.*theta);
 
-	x1 = amrex::Random();
-        x2 = amrex::Random();
-        // Each value of sqrt(-log(x1))*sin(2*pi*x2) is a sample from a Boltzmann
+	z1 = amrex::Random();
+        z2 = amrex::Random();
+        // Each value of sqrt(-log(z1))*sin(2*pi*z2) is a sample from a Boltzmann
         // distribution with sigma = average velocity / c
         // using the Box-Mueller Method.
-        u[(dir+1)%3] = vave*std::sqrt(-std::log(x1)) *std::sin(2*M_PI*x2); 
-        u[(dir+2)%3] = vave*std::sqrt(-std::log(x1)) *std::cos(2*M_PI*x2);
+        u[(dir+1)%3] = vave*std::sqrt(-std::log(z1)) *std::sin(2*M_PI*z2); 
+        u[(dir+2)%3] = vave*std::sqrt(-std::log(z1)) *std::cos(2*M_PI*z2);
         u[dir] = vave*std::sqrt(-std::log(amrex::Random()))*
              std::sin(2*M_PI*amrex::Random());
 	// u[(dir+1)%3] = 0;
@@ -141,8 +141,8 @@ struct InjectorMomentumBoltzmann
         // initialize the particle positions and densities in the frame moving
         // at speed beta, and then perform a Lorentz transform on the positions
         // and MB sampled velocities to the simulation frame.
-        x1 = amrex::Random();
-        if(-beta*u[dir]/gamma > x1)
+        z1 = amrex::Random();
+        if(-beta*u[dir]/gamma > z1)
         {
           u[dir] = -u[dir];
         }
@@ -184,8 +184,8 @@ struct InjectorMomentumJuttner
     // the temperature parameter theta,
     // boost velocity/c beta,
     // and boost direction dir respectively.
-    InjectorMomentumJuttner(amrex::Real s, amrex::Real l, amrex::Real b, amrex::Real n, amrex::Real de, amrex::Real x, amrex::Real c, int di, bool cc) noexcept
-        : sigma(s), lambdae(l), beta0(b), nbnd(n), delta(de), xcs(x), cellSize(c), dir(di), cellCentered(cc)
+    InjectorMomentumJuttner(amrex::Real s, amrex::Real l, amrex::Real b, amrex::Real n, amrex::Real de, amrex::Real z, amrex::Real c, int di, bool cc) noexcept
+        : sigma(s), lambdae(l), beta0(b), nbnd(n), delta(de), zcs(z), cellSize(c), dir(di), cellCentered(cc)
         {}
 
     AMREX_GPU_HOST_DEVICE
@@ -194,44 +194,44 @@ struct InjectorMomentumJuttner
     {
         // Sobol method for sampling MJ Speeds,
         // from Zenitani 2015 (Phys. Plasmas 22, 042116).
-        amrex::Real x1, x2, gamma, theta, beta, A, B, C;
+        amrex::Real z1, z2, gamma, theta, beta, A, B, C;
         amrex::Real u [3];
 	if(cellCentered)
 	{
 	    // x1 = (std::floor(x*1/cellSize)+0.5)*cellSize;
-	    x1 = (std::trunc(x*1/cellSize+0.5*x/std::abs(x)))*cellSize;
+	    z1 = (std::trunc(z*1/cellSize+0.5*z/std::abs(z)))*cellSize;
 	}
 	else
 	{
-	    x1 = x;
+	    z1 = z;
 	}
-	beta = -1 * beta0 * (std::pow(std::cosh( (x1 + xcs) / delta ),-1) - std::pow(std::cosh( (x1 - xcs) / delta ),-1));
+	beta = -1 * beta0 * (std::pow(std::cosh( (z1 + zcs) / delta ),-1) - std::pow(std::cosh( (z1 - zcs) / delta ),-1));
 	theta = sigma/4. * (51./50.
-			    - std::pow( - ( 2./(M_PI/2.+5.-1.) ) * (std::atan(std::tanh((x1+xcs)/2./delta)) - std::atan(std::tanh((x1-xcs)/2./delta)) - M_PI/4.
-								+ (5. - 1.) / 2. * (std::tanh((x1+xcs)/delta) - std::tanh((x1-xcs)/delta) - 1.)) , 2 ))
-	    /( ( 1. + 4.*( std::pow( std::cosh((x1 + xcs) / delta), -1 )  + std::pow( std::cosh((x1 - xcs) / delta), -1 ) ) )
-	       * std::pow( 1. - std::pow(beta0 * (std::pow(std::cosh( (x1 + xcs) / delta ), -1 ) - std::pow(std::cosh( (x1 - xcs) / delta ), -1 ) ), 2), 0.5 )
+			    - std::pow( - ( 2./(M_PI/2.+5.-1.) ) * (std::atan(std::tanh((z1+zcs)/2./delta)) - std::atan(std::tanh((z1-zcs)/2./delta)) - M_PI/4.
+								+ (5. - 1.) / 2. * (std::tanh((z1+zcs)/delta) - std::tanh((z1-zcs)/delta) - 1.)) , 2 ))
+	    /( ( 1. + 4.*( std::pow( std::cosh((z1 + zcs) / delta), -1 )  + std::pow( std::cosh((z1 - zcs) / delta), -1 ) ) )
+	       * std::pow( 1. - std::pow(beta0 * (std::pow(std::cosh( (z1 + zcs) / delta ), -1 ) - std::pow(std::cosh( (z1 - zcs) / delta ), -1 ) ), 2), 0.5 )
 		);
-        x1 = 0.;
+        z1 = 0.;
         gamma = 0.;
         u[dir] = 0.;
         // This condition is equation 10 in Zenitani,
-        // though x1 is defined differently.
+        // though z1 is defined differently.
 
-        while(u[dir]-gamma <= x1)
+        while(u[dir]-gamma <= z1)
         {
             u[dir] = -theta*
                 std::log(amrex::Random()*amrex::Random()*amrex::Random());
             gamma = std::sqrt(1.0+std::pow(u[dir],2));
-            x1 = theta*std::log(amrex::Random());
+            z1 = theta*std::log(amrex::Random());
         }
         // The following code samples a random unit vector
         // and multiplies the result by speed u[dir].
-        x1 = amrex::Random();
-        x2 = amrex::Random();
-	B = 2.0 * x1 - 1.0;
+        z1 = amrex::Random();
+        z2 = amrex::Random();
+	B = 2.0 * z1 - 1.0;
 	A = std::sqrt(1.0-B*B);
-	C = x2 * 2.0 * M_PI;
+	C = z2 * 2.0 * M_PI;
         // Direction dir is an input parameter that sets the boost direction:
         // 'x' -> d = 0, 'y' -> d = 1, 'z' -> d = 2.
         u[(dir+1)%3] = u[dir]*A*std::sin(C);
@@ -241,7 +241,7 @@ struct InjectorMomentumJuttner
 	// u[(dir+1)%3] = 0;
 	// u[(dir+2)%3] = 0;
 	// u[dir] = 0;
-        x1 = amrex::Random();
+        z1 = amrex::Random();
         // The following condition is equtaion 32 in Zenitani, called
         // The flipping method. It transforms the intergral: d3x' -> d3x
         // where d3x' is the volume element for positions in the boosted frame.
@@ -254,7 +254,7 @@ struct InjectorMomentumJuttner
         // would be to initialize the particle positions and densities in the
         // frame moving at speed beta, and then perform a Lorentz transform
         // on their positions and MJ sampled velocities to the simulation frame.
-        if(-beta*u[dir]/gamma>x1)
+        if(-beta*u[dir]/gamma>z1)
         {
             u[dir] = -u[dir];
         }
@@ -283,7 +283,7 @@ struct InjectorMomentumJuttner
 private:
     int dir;
     bool cellCentered;
-    amrex::Real sigma, lambdae, beta0, nbnd, xcs, cellSize, delta;
+    amrex::Real sigma, lambdae, beta0, nbnd, zcs, cellSize, delta;
 };
 
 /**
