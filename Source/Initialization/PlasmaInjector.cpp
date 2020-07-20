@@ -366,9 +366,18 @@ void PlasmaInjector::parseDensity (ParmParse& pp)
         inj_rho.reset(new InjectorDensity((InjectorDensityPredefined*)nullptr,species_name));
     } else if (rho_prof_s == "parse_density_function") {
         Store_parserString(pp, "density_function(x,y,z)", str_density_function);
+
+	Real cellSize;
+	bool cellCentered = true;
+
+	pp.query("cell_centered", cellCentered);
+	if (!pp.query("cell_size", cellSize)){
+	    amrex::Abort("You mnust enter a cell size with '<s_name>.cell_size =' !");
+	}
+	
         // Construct InjectorDensity with InjectorDensityParser.
         inj_rho.reset(new InjectorDensity((InjectorDensityParser*)nullptr,
-                                          makeParser(str_density_function,{"x","y","z"})));
+                                          makeParser(str_density_function,{"x","y","z"}), cellSize, cellCentered));
     } else {
         //No need for profile definition if external file is used
         std::string s_inj_style;
@@ -420,16 +429,68 @@ void PlasmaInjector::parseMomentum (ParmParse& pp)
         inj_mom.reset(new InjectorMomentum((InjectorMomentumGaussian*)nullptr,
                                            ux_m, uy_m, uz_m, ux_th, uy_th, uz_th));
     } else if (mom_dist_s == "maxwell_boltzmann"){
-        Real beta = 0.;
-        Real theta = 10.;
-        int dir = 0;
-        std::string direction = "x";
-        pp.query("beta", beta);
-        if(beta < 0){
-            amrex::Abort("Please enter a positive beta value. Drift direction is set with <s_name>.bulk_vel_dir = 'x' or '+x', '-x', 'y' or '+y', etc.");
-        }
-        pp.query("theta", theta);
-        pp.query("bulk_vel_dir", direction);
+	std::string direction = "x";
+	bool cellCentered = true;
+
+	pp.query("bulk_vel_dir", direction);
+	pp.query("cell_centered", cellCentered);
+
+	Real sigma, lambdae, nbnd, cellSize, xcs, beta, delta, dir;
+
+	if (!pp.query("cell_size", cellSize)){
+	    amrex::Abort("You mnust enter a cell size with '<s_name>.cell_size =' !");
+	}
+	if (!pp.query("xcs", xcs)){
+	    amrex::Abort("You must enter a cell size with '<s_name>.xcs =' !");
+	}
+
+	int count = 0;
+	
+	bool b, s, l, n, d;
+
+	b = pp.query("beta", beta);
+        if(b){
+	    if(beta < 0){
+		amrex::Abort("Please enter a positive beta value. Drift direction is set with <s_name>.bulk_vel_dir = 'x' or '+x', '-x', 'y' or '+y', etc.");
+	    }
+	    count += 1;
+	}
+	s = pp.query("sigma", sigma);
+        if(s){
+	    count += 1;
+	}
+	l = pp.query("lambdae", lambdae);
+	if(l){
+	    count += 1;
+	}
+	n = pp.query("nbnd", nbnd);
+	if(n){
+	    count += 1;
+	}
+	d = pp.query("delta", delta);
+	if(d){
+	    count += 1;
+	}
+	
+	if(count != 4){
+	    amrex::Abort("Please set exactly 4 of the following: 'sigma', 'lambdae', 'nbnd', 'delta', 'beta', and the remaining parameter will be set for you!");
+	}
+	if(!b){
+	    beta = std::sqrt(1.0/nbnd * sigma) * lambdae/(2.0 * delta)/(M_PI/2.0 + 5.0-1.0);
+	}
+	else if(!s){
+	    sigma = 4.0*std::pow(delta, 2)*std::pow(beta, 2)*std::pow(M_PI/2.0 + 5.0-1.0,2)/(1.0/nbnd * std::pow(lambdae, 2));
+	}
+	else if(!l){
+	    lambdae = 2.0 * delta * beta * (M_PI/2.0 + 5.0-1.0) / lambdae /std::sqrt(1.0/nbnd * sigma);
+	}
+	else if(!n){
+	    nbnd = 4.0*std::pow(delta, 2)*std::pow(beta, 2)*std::pow(M_PI/2.0 + 5.0-1.0,2)/(sigma * std::pow(lambdae, 2));
+	}
+	else if(!d){
+	    delta = std::sqrt(1.0/nbnd * sigma) * lambdae/(2.0 * beta )/(M_PI/2.0 + 5.0-1.0);
+	}
+	
         if(direction[0] == '-'){
             beta = -beta;
         }
@@ -449,18 +510,72 @@ void PlasmaInjector::parseMomentum (ParmParse& pp)
             amrex::Abort(direction.c_str());
         }
         // Construct InjectorMomentum with InjectorMomentumBoltzmann.
-        inj_mom.reset(new InjectorMomentum((InjectorMomentumBoltzmann*)nullptr, theta, beta, dir));
+        inj_mom.reset(new InjectorMomentum((InjectorMomentumBoltzmann*)nullptr, sigma, lambdae, beta, nbnd, delta, xcs, cellSize, dir, cellCentered));
     } else if (mom_dist_s == "maxwell_juttner"){
-        Real beta = 0.;
-        Real theta = 10.;
-        int dir = 0;
-        std::string direction = "x";
-        pp.query("beta", beta);
-        if(beta < 0){
-            amrex::Abort("Please enter a positive beta value. Drift direction is set with <s_name>.bulk_vel_dir = 'x' or '+x', '-x', 'y' or '+y', etc.");
-        }
-        pp.query("theta", theta);
-        pp.query("bulk_vel_dir", direction);
+
+	std::string direction = "x";
+	bool cellCentered = true;
+
+	pp.query("bulk_vel_dir", direction);
+	pp.query("cell_centered", cellCentered);
+
+	Real sigma, lambdae, nbnd, cellSize, xcs, beta, delta, dir;
+	
+	if (!pp.query("cell_size", cellSize)){
+	    amrex::Abort("You must enter a cell size with '<s_name>.cell_size =' !");
+	}
+	if (!pp.query("xcs", xcs)){
+	    amrex::Abort("You must enter a cell size with '<s_name>.xcs =' !");
+	}
+
+	int count = 0;
+
+	bool b, s, l, n, d;
+
+	b = pp.query("beta", beta);
+        if(b){
+	    if(beta < 0){
+		amrex::Abort("Please enter a positive beta value. Drift direction is set with <s_name>.bulk_vel_dir = 'x' or '+x', '-x', 'y' or '+y', etc.");
+	    }
+	    count += 1;
+	}
+	s = pp.query("sigma", sigma);
+        if(s){
+	    count += 1;
+	}
+	l = pp.query("lambdae", lambdae);
+	if(l){
+	    count += 1;
+	}
+	n = pp.query("nbnd", nbnd);
+	if(n){
+	    count += 1;
+	}
+	d = pp.query("delta", delta);
+	if(d){
+	    count += 1;
+	}
+	
+	if(count != 4){
+	    amrex::Abort("Please set exactly 4 of the following: 'sigma', 'lambdae', 'nbnd', 'delta', 'beta', and the remaining parameter will be set for you!");
+	}
+	if(!b){
+	    beta = std::sqrt(1.0/nbnd * sigma) * lambdae/(2.0 * delta)/(M_PI/2.0 + 5.0-1.0);
+	    Print() << "Beta " << beta << "\n";
+	}
+	else if(!s){
+	    sigma = 4.0*std::pow(delta, 2)*std::pow(beta, 2)*std::pow(M_PI/2.0 + 5.0-1.0,2)/(1.0/nbnd * std::pow(lambdae, 2));
+	}
+	else if(!l){
+	    lambdae = 2.0 * delta * beta * (M_PI/2.0 + 5.0-1.0) / lambdae /std::sqrt(1.0/nbnd * sigma);
+	}
+	else if(!n){
+	    nbnd = 4.0*std::pow(delta, 2)*std::pow(beta, 2)*std::pow(M_PI/2.0 + 5.0-1.0,2)/(sigma * std::pow(lambdae, 2));
+	}
+	else if(!d){
+	    delta = std::sqrt(1.0/nbnd * sigma) * lambdae/(2.0 * beta )/(M_PI/2.0 + 5.0-1.0);
+	}
+	
         if(direction[0] == '-'){
             beta = -beta;
         }
@@ -480,7 +595,7 @@ void PlasmaInjector::parseMomentum (ParmParse& pp)
             amrex::Abort(direction.c_str());
         }
         // Construct InjectorMomentum with InjectorMomentumJuttner.
-        inj_mom.reset(new InjectorMomentum((InjectorMomentumJuttner*)nullptr, theta, beta, dir));
+        inj_mom.reset(new InjectorMomentum((InjectorMomentumJuttner*)nullptr, sigma, lambdae, beta, nbnd, delta, xcs, cellSize, dir, cellCentered));
     } else if (mom_dist_s == "radial_expansion") {
         Real u_over_r = 0.;
         pp.query("u_over_r", u_over_r);

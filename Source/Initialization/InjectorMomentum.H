@@ -71,33 +71,63 @@ private:
     amrex::Real m_ux_th, m_uy_th, m_uz_th;
 };
 
-// struct whose getMomentum returns momentum for 1 particle with relativistic
-// drift velocity beta, from the Maxwell-Boltzmann distribution.
+// struct whose getMomentum returns momentum for 1 particle with relativistc
+// drift velocity beta, from the Maxwell-Boltzmann distribution. Method is from
+// Zenitani 2015 (Phys. Plasmas 22, 042116).
 struct InjectorMomentumBoltzmann
 {
     // Constructor whose inputs are:
     // the temperature parameter theta,
     // boost velocity/c beta,
     // and boost direction dir respectively.
-    InjectorMomentumBoltzmann(amrex::Real t, amrex::Real b, int d) noexcept
-        : dir(d), beta(b), vave(std::sqrt(2.*t))
+    InjectorMomentumBoltzmann(amrex::Real s, amrex::Real l, amrex::Real b, amrex::Real n, amrex::Real de ,amrex::Real x, amrex::Real c, int di, bool cc) noexcept
+        : sigma(s), lambdae(l), beta0(b), nbnd(n), delta(de), xcs(x), cellSize(c), dir(di), cellCentered(cc)
         {}
 
     AMREX_GPU_HOST_DEVICE
     amrex::XDim3
     getMomentum (amrex::Real x, amrex::Real y, amrex::Real z) const noexcept
     {
-        amrex::Real x1, x2, gamma;
-        amrex::Real u[3];
-        x1 = amrex::Random();
+        // Sobol method for sampling MJ Speeds,
+        // from Zenitani 2015 (Phys. Plasmas 22, 042116).
+        amrex::Real x1, x2, gamma, theta, beta;
+	amrex::Real vave;
+        amrex::Real u [3];
+	if(cellCentered)
+	{
+	    // x1 = (std::floor(x*1/cellSize)+0.5)*cellSize;
+	    x1 = (std::trunc(x*1/cellSize+0.5*x/std::abs(x)))*cellSize;
+	}
+	else
+	{
+	    x1 = x;
+	}
+	beta = -1 * beta0 * (std::pow(std::cosh( (x1 + xcs) / delta ),-1) - std::pow(std::cosh( (x1 - xcs) / delta ),-1));
+	// theta = sigma/4. * ( 51./50. - std::pow( -1. - std::tanh((x1 - xcs) / delta) + std::tanh((x1 + xcs) / delta) , 2 ) ) /
+	//     ( ( 1. + 4.*( std::pow( std::cosh((x1 + xcs) / delta), -1 )  + std::pow( std::cosh((x1 - xcs) / delta), -1 ) ) ) *
+	//       std::pow( 1. - std::pow(beta0 * (std::pow(std::cosh( (x1 + xcs) / delta ), -1 ) - std::pow(std::cosh( (x1 - xcs) / delta ), -1 ) ), 2 ), 0.5 ) );
+	theta = sigma/4. * (51./50.
+			    - std::pow( - ( 2./(M_PI/2.+5.-1.) ) * (std::atan(std::tanh((x1+xcs)/2./delta)) - std::atan(std::tanh((x1-xcs)/2./delta)) - M_PI/4.
+								+ (5. - 1.) / 2. * (std::tanh((x1+xcs)/delta) - std::tanh((x1-xcs)/delta) - 1.)) , 2 ))
+	    /( ( 1. + 4.*( std::pow( std::cosh((x1 + xcs) / delta), -1 )  + std::pow( std::cosh((x1 - xcs) / delta), -1 ) ) ) *
+	       std::pow( 1. - std::pow(beta0 * (std::pow(std::cosh( (x1 + xcs) / delta ), -1 ) - std::pow(std::cosh( (x1 - xcs) / delta ), -1 ) ), 2), 0.5 ) );
+
+	// theta = sigma/200;
+
+	vave = std::sqrt(2.*theta);
+
+	x1 = amrex::Random();
         x2 = amrex::Random();
-        // Each value of sqrt(-log(x1))*sin(2*pi*x2) is a sample from a Gaussian
+        // Each value of sqrt(-log(x1))*sin(2*pi*x2) is a sample from a Boltzmann
         // distribution with sigma = average velocity / c
         // using the Box-Mueller Method.
-        u[(dir+1)%3] = vave*std::sqrt(-std::log(x1)) *std::sin(2*M_PI*x2);
+        u[(dir+1)%3] = vave*std::sqrt(-std::log(x1)) *std::sin(2*M_PI*x2); 
         u[(dir+2)%3] = vave*std::sqrt(-std::log(x1)) *std::cos(2*M_PI*x2);
         u[dir] = vave*std::sqrt(-std::log(amrex::Random()))*
-            std::sin(2*M_PI*amrex::Random());
+             std::sin(2*M_PI*amrex::Random());
+	// u[(dir+1)%3] = 0;
+        // u[(dir+2)%3] = 0;
+	// u[dir] = 0;
         gamma = std::pow(u[0],2)+std::pow(u[1],2)+std::pow(u[2],2);
         gamma = std::sqrt(1+gamma);
         // The following condition is equtaion 32 in Zenitani 2015
@@ -119,9 +149,11 @@ struct InjectorMomentumBoltzmann
         // This Lorentz transform is equation 17 in Zenitani.
         // It transforms the integral d3u' -> d3u
         // where d3u' is the volume element for momentum in the boosted frame.
+	// beta = beta0;
         u[dir] = 1/std::sqrt(1-pow(beta,2))*(u[dir]+gamma*beta);
         // Note that if beta = 0 then the flipping method and Lorentz transform
         // have no effect on the u[dir] direction.
+	
         return amrex::XDim3 {u[0],u[1],u[2]};
     }
 
@@ -132,14 +164,15 @@ struct InjectorMomentumBoltzmann
         using namespace amrex;
         Real u[3];
         for (int idim = 0; idim < 3; ++idim) u[idim] = 0.0_rt;
-        const Real gamma = 1./sqrt(1+beta*beta);
-        u[dir] = gamma*beta;
+        const Real gamma = 1./sqrt(1+beta0*beta0);
+        u[dir] = gamma*beta0;
         return XDim3 {u[0],u[1],u[2]};
     }
 
 private:
     int dir;
-    amrex::Real beta, vave;
+    bool cellCentered;
+    amrex::Real sigma, lambdae, beta0, nbnd, xcs, cellSize, delta;
 };
 
 // struct whose getMomentum returns momentum for 1 particle with relativistc
@@ -151,8 +184,8 @@ struct InjectorMomentumJuttner
     // the temperature parameter theta,
     // boost velocity/c beta,
     // and boost direction dir respectively.
-    InjectorMomentumJuttner(amrex::Real t, amrex::Real b, int d) noexcept
-        : dir(d), beta(b), theta(t)
+    InjectorMomentumJuttner(amrex::Real s, amrex::Real l, amrex::Real b, amrex::Real n, amrex::Real de, amrex::Real x, amrex::Real c, int di, bool cc) noexcept
+        : sigma(s), lambdae(l), beta0(b), nbnd(n), delta(de), xcs(x), cellSize(c), dir(di), cellCentered(cc)
         {}
 
     AMREX_GPU_HOST_DEVICE
@@ -161,30 +194,53 @@ struct InjectorMomentumJuttner
     {
         // Sobol method for sampling MJ Speeds,
         // from Zenitani 2015 (Phys. Plasmas 22, 042116).
-        amrex::Real x1, x2, gamma;
+        amrex::Real x1, x2, gamma, theta, beta, A, B, C;
         amrex::Real u [3];
+	if(cellCentered)
+	{
+	    // x1 = (std::floor(x*1/cellSize)+0.5)*cellSize;
+	    x1 = (std::trunc(x*1/cellSize+0.5*x/std::abs(x)))*cellSize;
+	}
+	else
+	{
+	    x1 = x;
+	}
+	beta = -1 * beta0 * (std::pow(std::cosh( (x1 + xcs) / delta ),-1) - std::pow(std::cosh( (x1 - xcs) / delta ),-1));
+	theta = sigma/4. * (51./50.
+			    - std::pow( - ( 2./(M_PI/2.+5.-1.) ) * (std::atan(std::tanh((x1+xcs)/2./delta)) - std::atan(std::tanh((x1-xcs)/2./delta)) - M_PI/4.
+								+ (5. - 1.) / 2. * (std::tanh((x1+xcs)/delta) - std::tanh((x1-xcs)/delta) - 1.)) , 2 ))
+	    /( ( 1. + 4.*( std::pow( std::cosh((x1 + xcs) / delta), -1 )  + std::pow( std::cosh((x1 - xcs) / delta), -1 ) ) )
+	       * std::pow( 1. - std::pow(beta0 * (std::pow(std::cosh( (x1 + xcs) / delta ), -1 ) - std::pow(std::cosh( (x1 - xcs) / delta ), -1 ) ), 2), 0.5 )
+		);
         x1 = 0.;
         gamma = 0.;
         u[dir] = 0.;
         // This condition is equation 10 in Zenitani,
         // though x1 is defined differently.
+
         while(u[dir]-gamma <= x1)
         {
             u[dir] = -theta*
                 std::log(amrex::Random()*amrex::Random()*amrex::Random());
-            gamma = std::sqrt(1+std::pow(u[dir],2));
+            gamma = std::sqrt(1.0+std::pow(u[dir],2));
             x1 = theta*std::log(amrex::Random());
         }
         // The following code samples a random unit vector
         // and multiplies the result by speed u[dir].
         x1 = amrex::Random();
         x2 = amrex::Random();
+	B = 2.0 * x1 - 1.0;
+	A = std::sqrt(1.0-B*B);
+	C = x2 * 2.0 * M_PI;
         // Direction dir is an input parameter that sets the boost direction:
         // 'x' -> d = 0, 'y' -> d = 1, 'z' -> d = 2.
-        u[(dir+1)%3] = 2*u[dir]*std::sqrt(x1*(1-x1))*std::sin(2*M_PI*x2);
-        u[(dir+2)%3] = 2*u[dir]*std::sqrt(x1*(1-x1))*std::cos(2*M_PI*x2);
+        u[(dir+1)%3] = u[dir]*A*std::sin(C);
+	u[(dir+2)%3] = u[dir]*A*std::cos(C);
         // The value of dir is the boost direction to be transformed.
-        u[dir] = u[dir]*(2*x1-1);
+        u[dir] = u[dir]*B;	
+	// u[(dir+1)%3] = 0;
+	// u[(dir+2)%3] = 0;
+	// u[dir] = 0;
         x1 = amrex::Random();
         // The following condition is equtaion 32 in Zenitani, called
         // The flipping method. It transforms the intergral: d3x' -> d3x
@@ -205,6 +261,7 @@ struct InjectorMomentumJuttner
         // This Lorentz transform is equation 17 in Zenitani.
         // It transforms the integral d3u' -> d3u
         // where d3u' is the volume element for momentum in the boosted frame.
+	// beta = theta;
         u[dir] = 1/std::sqrt(1-pow(beta,2))*(u[dir]+gamma*beta);
         // Note that if beta = 0 then the flipping method and Lorentz transform
         // have no effect on the u[dir] direction.
@@ -218,14 +275,15 @@ struct InjectorMomentumJuttner
         using namespace amrex;
         Real u[3];
         for (int idim = 0; idim < 3; ++idim) u[idim] = 0.0_rt;
-        const Real gamma = 1./sqrt(1+beta*beta);
-        u[dir] = gamma*beta;
+        const Real gamma = 1./sqrt(1+beta0*beta0);
+        u[dir] = gamma*beta0;
         return XDim3 {u[0],u[1],u[2]};
     }
 
 private:
     int dir;
-    amrex::Real beta, theta;
+    bool cellCentered;
+    amrex::Real sigma, lambdae, beta0, nbnd, xcs, cellSize, delta;
 };
 
 /**
@@ -289,7 +347,7 @@ struct InjectorMomentumParser
 // InjectorMomentum contains a union (called Object) that holds any one
 // instance of:
 // - InjectorMomentumConstant       : to generate constant density;
-// - InjectorMomentumGaussian       : to generate gaussian distribution;
+// - InjectorMomentumBoltzmann       : to generate gaussian distribution;
 // - InjectorMomentumRadialExpansion: to generate radial expansion;
 // - InjectorMomentumParser         : to generate momentum from parser;
 // The choice is made at runtime, depending in the constructor called.
@@ -315,7 +373,7 @@ struct InjectorMomentum
         : type(Type::parser),
           object(t, a_ux_parser, a_uy_parser, a_uz_parser)
     { }
-
+    
     // This constructor stores a InjectorMomentumGaussian in union object.
     InjectorMomentum (InjectorMomentumGaussian* t,
                       amrex::Real a_ux_m, amrex::Real a_uy_m, amrex::Real a_uz_m,
@@ -325,16 +383,16 @@ struct InjectorMomentum
     { }
 
     InjectorMomentum (InjectorMomentumBoltzmann* t,
-                       amrex::Real theta, amrex::Real beta, int dir)
-         : type(Type::boltzmann),
-           object(t, theta, beta, dir)
+		      amrex::Real s, amrex::Real l, amrex::Real b, amrex::Real n, amrex::Real de, amrex::Real x, amrex::Real c, int di, bool cc)
+	: type(Type::boltzmann),
+	  object(t, s, l, b, n, de, x, c, di, cc)
     { }
 
      // This constructor stores a InjectorMomentumJuttner in union object.
      InjectorMomentum (InjectorMomentumJuttner* t,
-                       amrex::Real theta, amrex::Real beta, int dir)
+                       amrex::Real s, amrex::Real l, amrex::Real b, amrex::Real n, amrex::Real de, amrex::Real x, amrex::Real c, int di, bool cc)
          : type(Type::juttner),
-           object(t, theta, beta, dir)
+           object(t, s, l, b, n, de, x, c, di, cc)
     { }
 
     // This constructor stores a InjectorMomentumCustom in union object.
@@ -468,11 +526,11 @@ private:
                 amrex::Real a_uy_th, amrex::Real a_uz_th) noexcept
             : gaussian(a_ux_m,a_uy_m,a_uz_m,a_ux_th,a_uy_th,a_uz_th) {}
         Object (InjectorMomentumBoltzmann*,
-                amrex::Real t, amrex::Real b, int dir) noexcept
-            : boltzmann(t,b,dir) {}
+                amrex::Real s, amrex::Real l, amrex::Real b, amrex::Real n, amrex::Real de, amrex::Real x, amrex::Real c, int di, bool cc) noexcept
+            : boltzmann(s, l, b, n, de, x, c, di, cc) {}
         Object (InjectorMomentumJuttner*,
-                amrex::Real t, amrex::Real b, int dir) noexcept
-            : juttner(t,b,dir) {}
+                amrex::Real s, amrex::Real l, amrex::Real b, amrex::Real n, amrex::Real de, amrex::Real x, amrex::Real c, int di, bool cc) noexcept
+            : juttner(s, l, b, n, de, x, c, di, cc) {}
         Object (InjectorMomentumRadialExpansion*,
                 amrex::Real u_over_r) noexcept
             : radial_expansion(u_over_r) {}
