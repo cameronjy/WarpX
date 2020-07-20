@@ -43,19 +43,19 @@ struct InjectorDensityParser
     getDensity (amrex::Real x, amrex::Real y, amrex::Real z) const noexcept
     {
 
-	amrex::Real x1;
+	amrex::Real z1;
 
 	if(cellCentered)
 	{
-	    // x1 = (std::floor(x*1/cellSize)+0.5)*cellSize;
-	    x1 = (std::trunc(x*1/cellSize+0.5*x/std::abs(x)))*cellSize;
+	    // z1 = (std::floor(z*1/cellSize)+0.5)*cellSize;
+	    z1 = (std::trunc(z*1/cellSize+0.5*z/std::abs(z)))*cellSize;
 	}
 	else
 	{
-	    x1 = x;
+	    z1 = z;
 	}
 	
-        return m_parser(x1,y,z);
+        return m_parser(x,y,z1);
     }
 
     // InjectorDensityParser constructs this GpuParser from WarpXParser.
