@@ -172,7 +172,7 @@ struct InjectorMomentumBoltzmann
 private:
     int dir;
     bool cellCentered;
-    amrex::Real sigma, lambdae, beta0, nbnd, xcs, cellSize, delta;
+    amrex::Real sigma, lambdae, beta0, nbnd, zcs, cellSize, delta;
 };
 
 // struct whose getMomentum returns momentum for 1 particle with relativistc

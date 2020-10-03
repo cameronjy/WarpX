@@ -435,7 +435,7 @@ void PlasmaInjector::parseMomentum (ParmParse& pp)
 	pp.query("bulk_vel_dir", direction);
 	pp.query("cell_centered", cellCentered);
 
-	Real sigma, lambdae, nbnd, cellSize, xcs, beta, delta, dir;
+	Real sigma, lambdae, nbnd, cellSize, zcs, beta, delta, dir;
 
 	if (!pp.query("cell_size", cellSize)){
 	    amrex::Abort("You mnust enter a cell size with '<s_name>.cell_size =' !");
@@ -560,20 +560,20 @@ void PlasmaInjector::parseMomentum (ParmParse& pp)
 	    amrex::Abort("Please set exactly 4 of the following: 'sigma', 'lambdae', 'nbnd', 'delta', 'beta', and the remaining parameter will be set for you!");
 	}
 	if(!b){
-	    beta = std::sqrt(1.0/nbnd * sigma) * lambdae/(2.0 * delta)/(M_PI/2.0 + 5.0-1.0);
+	    beta = std::sqrt(1.0/nbnd * sigma) * lambdae/(2.0 * delta)/(M_PI/2.0 + 1/nbnd - 1.0);
 	    Print() << "Beta " << beta << "\n";
 	}
 	else if(!s){
-	    sigma = 4.0*std::pow(delta, 2)*std::pow(beta, 2)*std::pow(M_PI/2.0 + 5.0-1.0,2)/(1.0/nbnd * std::pow(lambdae, 2));
+	    sigma = 4.0*std::pow(delta, 2)*std::pow(beta, 2)*std::pow(M_PI/2.0 + 1/nbnd -1.0,2)/(1.0/nbnd * std::pow(lambdae, 2));
 	}
 	else if(!l){
-	    lambdae = 2.0 * delta * beta * (M_PI/2.0 + 5.0-1.0) / lambdae /std::sqrt(1.0/nbnd * sigma);
+	    lambdae = 2.0 * delta * beta * (M_PI/2.0 + 1/nbnd -1.0) / lambdae /std::sqrt(1.0/nbnd * sigma);
 	}
 	else if(!n){
 	    nbnd = 4.0*std::pow(delta, 2)*std::pow(beta, 2)*std::pow(M_PI/2.0 + 5.0-1.0,2)/(sigma * std::pow(lambdae, 2));
 	}
 	else if(!d){
-	    delta = std::sqrt(1.0/nbnd * sigma) * lambdae/(2.0 * beta )/(M_PI/2.0 + 5.0-1.0);
+	    delta = std::sqrt(1.0/nbnd * sigma) * lambdae/(2.0 * beta )/(M_PI/2.0 + 1/nbnd - 1.0);
 	}
 	
         if(direction[0] == '-'){
