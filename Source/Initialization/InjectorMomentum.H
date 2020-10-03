@@ -23,7 +23,8 @@ struct InjectorMomentumConstant
 
     AMREX_GPU_HOST_DEVICE
     amrex::XDim3
-    getMomentum (amrex::Real, amrex::Real, amrex::Real) const noexcept
+    getMomentum (amrex::Real, amrex::Real, amrex::Real,
+                 amrex::RandomEngine const&) const noexcept
     {
         return amrex::XDim3{m_ux,m_uy,m_uz};
     }
@@ -52,16 +53,17 @@ struct InjectorMomentumGaussian
 
     AMREX_GPU_HOST_DEVICE
     amrex::XDim3
-    getMomentum (amrex::Real x, amrex::Real y, amrex::Real z) const noexcept
+    getMomentum (amrex::Real /*x*/, amrex::Real /*y*/, amrex::Real /*z*/,
+                 amrex::RandomEngine const& engine) const noexcept
     {
-        return amrex::XDim3{amrex::RandomNormal(m_ux_m, m_ux_th),
-                            amrex::RandomNormal(m_uy_m, m_uy_th),
-                            amrex::RandomNormal(m_uz_m, m_uz_th)};
+        return amrex::XDim3{amrex::RandomNormal(m_ux_m, m_ux_th, engine),
+                            amrex::RandomNormal(m_uy_m, m_uy_th, engine),
+                            amrex::RandomNormal(m_uz_m, m_uz_th, engine)};
     }
 
     AMREX_GPU_HOST_DEVICE
     amrex::XDim3
-    getBulkMomentum (amrex::Real x, amrex::Real y, amrex::Real z) const noexcept
+    getBulkMomentum (amrex::Real /*x*/, amrex::Real /*y*/, amrex::Real /*z*/) const noexcept
     {
         return amrex::XDim3{m_ux_m, m_uy_m, m_uz_m};
     }
@@ -86,8 +88,10 @@ struct InjectorMomentumBoltzmann
 
     AMREX_GPU_HOST_DEVICE
     amrex::XDim3
-    getMomentum (amrex::Real x, amrex::Real y, amrex::Real z) const noexcept
+    getMomentum (amrex::Real /*x*/, amrex::Real /*y*/, amrex::Real /*z*/,
+                 amrex::RandomEngine const& engine) const noexcept
     {
+<<<<<<< HEAD
         // Sobol method for sampling MJ Speeds,
         // from Zenitani 2015 (Phys. Plasmas 22, 042116).
         amrex::Real z1, z2, gamma, theta, beta;
@@ -159,7 +163,7 @@ struct InjectorMomentumBoltzmann
 
     AMREX_GPU_HOST_DEVICE
     amrex::XDim3
-    getBulkMomentum (amrex::Real x, amrex::Real y, amrex::Real z) const noexcept
+    getBulkMomentum (amrex::Real /*x*/, amrex::Real /*y*/, amrex::Real /*z*/) const noexcept
     {
         using namespace amrex;
         Real u[3];
@@ -190,7 +194,8 @@ struct InjectorMomentumJuttner
 
     AMREX_GPU_HOST_DEVICE
     amrex::XDim3
-    getMomentum (amrex::Real x, amrex::Real y, amrex::Real z) const noexcept
+    getMomentum (amrex::Real /*x*/, amrex::Real /*y*/, amrex::Real /*z*/,
+                 amrex::RandomEngine const& engine) const noexcept
     {
         // Sobol method for sampling MJ Speeds,
         // from Zenitani 2015 (Phys. Plasmas 22, 042116).
@@ -221,6 +226,7 @@ struct InjectorMomentumJuttner
         while(u[dir]-gamma <= z1)
         {
             u[dir] = -theta*
+<<<<<<< HEAD
                 std::log(amrex::Random()*amrex::Random()*amrex::Random());
             gamma = std::sqrt(1.0+std::pow(u[dir],2));
             z1 = theta*std::log(amrex::Random());
@@ -270,7 +276,7 @@ struct InjectorMomentumJuttner
 
     AMREX_GPU_HOST_DEVICE
     amrex::XDim3
-    getBulkMomentum (amrex::Real x, amrex::Real y, amrex::Real z) const noexcept
+    getBulkMomentum (amrex::Real /*x*/, amrex::Real /*y*/, amrex::Real /*z*/) const noexcept
     {
         using namespace amrex;
         Real u[3];
@@ -301,7 +307,8 @@ struct InjectorMomentumRadialExpansion
 
     AMREX_GPU_HOST_DEVICE
     amrex::XDim3
-    getMomentum (amrex::Real x, amrex::Real y, amrex::Real z) const noexcept
+    getMomentum (amrex::Real x, amrex::Real y, amrex::Real z,
+                 amrex::RandomEngine const&) const noexcept
     {
         return {x*u_over_r, y*u_over_r, z*u_over_r};
     }
@@ -328,7 +335,8 @@ struct InjectorMomentumParser
 
     AMREX_GPU_HOST_DEVICE
     amrex::XDim3
-    getMomentum (amrex::Real x, amrex::Real y, amrex::Real z) const noexcept
+    getMomentum (amrex::Real x, amrex::Real y, amrex::Real z,
+                 amrex::RandomEngine const&) const noexcept
     {
         return amrex::XDim3{m_ux_parser(x,y,z),m_uy_parser(x,y,z),m_uz_parser(x,y,z)};
     }
@@ -351,12 +359,8 @@ struct InjectorMomentumParser
 // - InjectorMomentumRadialExpansion: to generate radial expansion;
 // - InjectorMomentumParser         : to generate momentum from parser;
 // The choice is made at runtime, depending in the constructor called.
-// This mimics virtual functions, except the struct is stored in managed memory
-// and member functions are made __host__ __device__ to run on CPU and GPU.
-// This struct inherits from amrex::Gpu::Managed to provide new and delete
-// operators in managed memory when running on GPU. Nothing special on CPU.
+// This mimics virtual functions.
 struct InjectorMomentum
-    : public amrex::Gpu::Managed
 {
     // This constructor stores a InjectorMomentumConstant in union object.
     InjectorMomentum (InjectorMomentumConstant* t,
@@ -416,43 +420,44 @@ struct InjectorMomentum
     void operator= (InjectorMomentum const&) = delete;
     void operator= (InjectorMomentum &&) = delete;
 
-    ~InjectorMomentum ();
+    void clear ();
 
     // call getMomentum from the object stored in the union
     // (the union is called Object, and the instance is called object).
     AMREX_GPU_HOST_DEVICE
     amrex::XDim3
-    getMomentum (amrex::Real x, amrex::Real y, amrex::Real z) const noexcept
+    getMomentum (amrex::Real x, amrex::Real y, amrex::Real z,
+                 amrex::RandomEngine const& engine) const noexcept
     {
         switch (type)
         {
         case Type::parser:
         {
-            return object.parser.getMomentum(x,y,z);
+            return object.parser.getMomentum(x,y,z,engine);
         }
         case Type::gaussian:
         {
-            return object.gaussian.getMomentum(x,y,z);
+            return object.gaussian.getMomentum(x,y,z,engine);
         }
         case Type::boltzmann:
         {
-            return object.boltzmann.getMomentum(x,y,z);
+            return object.boltzmann.getMomentum(x,y,z,engine);
         }
         case Type::juttner:
         {
-            return object.juttner.getMomentum(x,y,z);
+            return object.juttner.getMomentum(x,y,z,engine);
         }
         case Type::constant:
         {
-            return object.constant.getMomentum(x,y,z);
+            return object.constant.getMomentum(x,y,z,engine);
         }
         case Type::radial_expansion:
         {
-            return object.radial_expansion.getMomentum(x,y,z);
+            return object.radial_expansion.getMomentum(x,y,z,engine);
         }
         case Type::custom:
         {
-            return object.custom.getMomentum(x,y,z);
+            return object.custom.getMomentum(x,y,z,engine);
         }
         default:
         {
@@ -548,6 +553,17 @@ private:
         InjectorMomentumParser   parser;
     };
     Object object;
+};
+
+// In order for InjectorMomentum to be trivially copyable, its destructor
+// must be trivial.  So we have to rely on a custom deleter for unique_ptr.
+struct InjectorMomentumDeleter {
+    void operator () (InjectorMomentum* p) const {
+        if (p) {
+            p->clear();
+            delete p;
+        }
+    }
 };
 
 #endif
