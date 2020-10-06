@@ -88,10 +88,9 @@ struct InjectorMomentumBoltzmann
 
     AMREX_GPU_HOST_DEVICE
     amrex::XDim3
-    getMomentum (amrex::Real /*x*/, amrex::Real /*y*/, amrex::Real /*z*/,
+    getMomentum (amrex::Real x, amrex::Real y, amrex::Real z,
                  amrex::RandomEngine const& engine) const noexcept
     {
-<<<<<<< HEAD
         // Sobol method for sampling MJ Speeds,
         // from Zenitani 2015 (Phys. Plasmas 22, 042116).
         amrex::Real z1, z2, gamma, theta, beta;
@@ -120,15 +119,15 @@ struct InjectorMomentumBoltzmann
 
 	vave = std::sqrt(2.*theta);
 
-	z1 = amrex::Random();
-        z2 = amrex::Random();
+	z1 = amrex::Random(engine);
+        z2 = amrex::Random(engine);
         // Each value of sqrt(-log(z1))*sin(2*pi*z2) is a sample from a Boltzmann
         // distribution with sigma = average velocity / c
         // using the Box-Mueller Method.
         u[(dir+1)%3] = vave*std::sqrt(-std::log(z1)) *std::sin(2*M_PI*z2); 
         u[(dir+2)%3] = vave*std::sqrt(-std::log(z1)) *std::cos(2*M_PI*z2);
-        u[dir] = vave*std::sqrt(-std::log(amrex::Random()))*
-             std::sin(2*M_PI*amrex::Random());
+        u[dir] = vave*std::sqrt(-std::log(amrex::Random(engine)))*
+             std::sin(2*M_PI*amrex::Random(engine));
 	// u[(dir+1)%3] = 0;
         // u[(dir+2)%3] = 0;
 	// u[dir] = 0;
@@ -145,7 +144,7 @@ struct InjectorMomentumBoltzmann
         // initialize the particle positions and densities in the frame moving
         // at speed beta, and then perform a Lorentz transform on the positions
         // and MB sampled velocities to the simulation frame.
-        z1 = amrex::Random();
+        z1 = amrex::Random(engine);
         if(-beta*u[dir]/gamma > z1)
         {
           u[dir] = -u[dir];
@@ -194,7 +193,7 @@ struct InjectorMomentumJuttner
 
     AMREX_GPU_HOST_DEVICE
     amrex::XDim3
-    getMomentum (amrex::Real /*x*/, amrex::Real /*y*/, amrex::Real /*z*/,
+    getMomentum (amrex::Real x, amrex::Real y, amrex::Real z,
                  amrex::RandomEngine const& engine) const noexcept
     {
         // Sobol method for sampling MJ Speeds,
@@ -226,15 +225,14 @@ struct InjectorMomentumJuttner
         while(u[dir]-gamma <= z1)
         {
             u[dir] = -theta*
-<<<<<<< HEAD
-                std::log(amrex::Random()*amrex::Random()*amrex::Random());
+                std::log(amrex::Random(engine)*amrex::Random(engine)*amrex::Random(engine));
             gamma = std::sqrt(1.0+std::pow(u[dir],2));
-            z1 = theta*std::log(amrex::Random());
+            z1 = theta*std::log(amrex::Random(engine));
         }
         // The following code samples a random unit vector
         // and multiplies the result by speed u[dir].
-        z1 = amrex::Random();
-        z2 = amrex::Random();
+        z1 = amrex::Random(engine);
+        z2 = amrex::Random(engine);
 	B = 2.0 * z1 - 1.0;
 	A = std::sqrt(1.0-B*B);
 	C = z2 * 2.0 * M_PI;
@@ -247,7 +245,7 @@ struct InjectorMomentumJuttner
 	// u[(dir+1)%3] = 0;
 	// u[(dir+2)%3] = 0;
 	// u[dir] = 0;
-        z1 = amrex::Random();
+        z1 = amrex::Random(engine);
         // The following condition is equtaion 32 in Zenitani, called
         // The flipping method. It transforms the intergral: d3x' -> d3x
         // where d3x' is the volume element for positions in the boosted frame.

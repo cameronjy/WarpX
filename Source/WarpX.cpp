@@ -598,19 +598,6 @@ WarpX::ReadParameters ()
     }
 
     {
-<<<<<<< HEAD
-        ParmParse pp("interpolation");
-        pp.query("nox", nox);
-        pp.query("noy", noy);
-        pp.query("noz", noz);
-        AMREX_ALWAYS_ASSERT_WITH_MESSAGE( nox == noy and nox == noz ,
-            "warpx.nox, noy and noz must be equal");
-        // AMREX_ALWAYS_ASSERT_WITH_MESSAGE( nox >= 1, "warpx.nox must >= 1");
-    }
-
-    {
-=======
->>>>>>> 9e4abfec51b81c00bdfb8cfe1e698f355857a7d6
         ParmParse pp("algo");
         current_deposition_algo = GetAlgorithmInteger(pp, "current_deposition");
         charge_deposition_algo = GetAlgorithmInteger(pp, "charge_deposition");
@@ -640,7 +627,7 @@ WarpX::ReadParameters ()
 
         AMREX_ALWAYS_ASSERT_WITH_MESSAGE( nox == noy and nox == noz ,
             "warpx.nox, noy and noz must be equal");
-        AMREX_ALWAYS_ASSERT_WITH_MESSAGE( nox >= 1, "warpx.nox must >= 1");
+        // AMREX_ALWAYS_ASSERT_WITH_MESSAGE( nox >= 1, "warpx.nox must >= 1");
     }
 
 #ifdef WARPX_USE_PSATD

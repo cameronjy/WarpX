@@ -564,11 +564,8 @@ void PlasmaInjector::parseMomentum (ParmParse& pp)
             amrex::Abort(direction.c_str());
         }
         // Construct InjectorMomentum with InjectorMomentumBoltzmann.
-<<<<<<< HEAD
-        inj_mom.reset(new InjectorMomentum((InjectorMomentumBoltzmann*)nullptr, sigma, lambdae, beta, nbnd, delta, zcs, cellSize, dir, cellCentered));
-=======
-        h_inj_mom.reset(new InjectorMomentum((InjectorMomentumBoltzmann*)nullptr, theta, beta, dir));
->>>>>>> 9e4abfec51b81c00bdfb8cfe1e698f355857a7d6
+        h_inj_mom.reset(new InjectorMomentum((InjectorMomentumBoltzmann*)nullptr, sigma, lambdae, beta, nbnd, delta, zcs, cellSize, dir, cellCentered));
+
     } else if (mom_dist_s == "maxwell_juttner"){
 
 	std::string direction = "x";
@@ -653,11 +650,7 @@ void PlasmaInjector::parseMomentum (ParmParse& pp)
             amrex::Abort(direction.c_str());
         }
         // Construct InjectorMomentum with InjectorMomentumJuttner.
-<<<<<<< HEAD
-        inj_mom.reset(new InjectorMomentum((InjectorMomentumJuttner*)nullptr, sigma, lambdae, beta, nbnd, delta, zcs, cellSize, dir, cellCentered));
-=======
-        h_inj_mom.reset(new InjectorMomentum((InjectorMomentumJuttner*)nullptr, theta, beta, dir));
->>>>>>> 9e4abfec51b81c00bdfb8cfe1e698f355857a7d6
+        h_inj_mom.reset(new InjectorMomentum((InjectorMomentumJuttner*)nullptr, sigma, lambdae, beta, nbnd, delta, zcs, cellSize, dir, cellCentered));
     } else if (mom_dist_s == "radial_expansion") {
         Real u_over_r = 0.;
         pp.query("u_over_r", u_over_r);
