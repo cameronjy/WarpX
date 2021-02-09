@@ -11,6 +11,9 @@
  */
 #include "WarpX.H"
 #include "FieldSolver/WarpX_FDTD.H"
+#ifdef WARPX_USE_PSATD
+#include "FieldSolver/SpectralSolver/SpectralKSpace.H"
+#endif
 #include "Python/WarpXWrappers.h"
 #include "Utils/WarpXConst.H"
 #include "Utils/WarpXUtil.H"
@@ -161,6 +164,8 @@ WarpX::WarpX ()
 
     BackwardCompatibility();
 
+    InitEB();
+
     // Geometry on all levels has been defined already.
 
     // No valid BoxArray and DistributionMapping have been defined.
@@ -235,7 +240,9 @@ WarpX::WarpX ()
 
     pml.resize(nlevs_max);
     costs.resize(nlevs_max);
+    load_balance_efficiency.resize(nlevs_max);
 
+    m_field_factory.resize(nlevs_max);
 
     if (em_solver_medium == MediumForEM::Macroscopic) {
         // create object for macroscopic solver
@@ -605,14 +612,6 @@ WarpX::ReadParameters ()
             fine_tag_hi = RealVect{hi};
         }
 
-        std::vector<std::string> load_balance_intervals_string_vec = {"0"};
-        pp.queryarr("load_balance_intervals", load_balance_intervals_string_vec);
-        load_balance_intervals = IntervalsParser(load_balance_intervals_string_vec);
-        pp.query("load_balance_with_sfc", load_balance_with_sfc);
-        pp.query("load_balance_knapsack_factor", load_balance_knapsack_factor);
-        queryWithParser(pp, "load_balance_efficiency_ratio_threshold",
-                             load_balance_efficiency_ratio_threshold);
-
         pp.query("do_dynamic_scheduling", do_dynamic_scheduling);
 
         pp.query("do_nodal", do_nodal);
@@ -661,11 +660,21 @@ WarpX::ReadParameters ()
             // Use same shape factors in all directions, for gathering
             galerkin_interpolation = false;
         }
-        load_balance_costs_update_algo = GetAlgorithmInteger(pp, "load_balance_costs_update");
+
         em_solver_medium = GetAlgorithmInteger(pp, "em_solver_medium");
         if (em_solver_medium == MediumForEM::Macroscopic ) {
             macroscopic_solver_algo = GetAlgorithmInteger(pp,"macroscopic_sigma_method");
         }
+
+        // Load balancing parameters
+        std::vector<std::string> load_balance_intervals_string_vec = {"0"};
+        pp.queryarr("load_balance_intervals", load_balance_intervals_string_vec);
+        load_balance_intervals = IntervalsParser(load_balance_intervals_string_vec);
+        pp.query("load_balance_with_sfc", load_balance_with_sfc);
+        pp.query("load_balance_knapsack_factor", load_balance_knapsack_factor);
+        queryWithParser(pp, "load_balance_efficiency_ratio_threshold",
+                        load_balance_efficiency_ratio_threshold);
+        load_balance_costs_update_algo = GetAlgorithmInteger(pp, "load_balance_costs_update");
         queryWithParser(pp, "costs_heuristic_cells_wt", costs_heuristic_cells_wt);
         queryWithParser(pp, "costs_heuristic_particles_wt", costs_heuristic_particles_wt);
     }
@@ -690,6 +699,32 @@ WarpX::ReadParameters ()
                     field_gathering_nox == 2 && field_gathering_noy == 2 && field_gathering_noz == 2,
                     "High-order interpolation (order > 2) is not implemented with mesh refinement");
             }
+
+            // Host vectors for Fornberg stencil coefficients used for finite-order centering
+            host_centering_stencil_coeffs_x = getFornbergStencilCoefficients(field_gathering_nox, false);
+            host_centering_stencil_coeffs_y = getFornbergStencilCoefficients(field_gathering_noy, false);
+            host_centering_stencil_coeffs_z = getFornbergStencilCoefficients(field_gathering_noz, false);
+
+            // Device vectors for Fornberg stencil coefficients used for finite-order centering
+            device_centering_stencil_coeffs_x.resize(host_centering_stencil_coeffs_x.size());
+            amrex::Gpu::copyAsync(amrex::Gpu::hostToDevice,
+                                  host_centering_stencil_coeffs_x.begin(),
+                                  host_centering_stencil_coeffs_x.end(),
+                                  device_centering_stencil_coeffs_x.begin());
+
+            device_centering_stencil_coeffs_y.resize(host_centering_stencil_coeffs_y.size());
+            amrex::Gpu::copyAsync(amrex::Gpu::hostToDevice,
+                                  host_centering_stencil_coeffs_y.begin(),
+                                  host_centering_stencil_coeffs_y.end(),
+                                  device_centering_stencil_coeffs_y.begin());
+
+            device_centering_stencil_coeffs_z.resize(host_centering_stencil_coeffs_z.size());
+            amrex::Gpu::copyAsync(amrex::Gpu::hostToDevice,
+                                  host_centering_stencil_coeffs_z.begin(),
+                                  host_centering_stencil_coeffs_z.end(),
+                                  device_centering_stencil_coeffs_z.begin());
+
+            amrex::Gpu::synchronize();
         }
 #endif
 
@@ -743,11 +778,18 @@ WarpX::ReadParameters ()
         }
 
         pp.query("current_correction", current_correction);
-        pp.query("v_galilean", m_v_galilean);
         pp.query("v_comoving", m_v_comoving);
         pp.query("do_time_averaging", fft_do_time_averaging);
 
-        // Scale the velocity by the speed of light
+        // Check whether the default Galilean velocity should be used
+        bool use_default_v_galilean = false;
+        pp.query("use_default_v_galilean", use_default_v_galilean);
+        if (use_default_v_galilean) {
+            m_v_galilean[2] = -std::sqrt(1._rt - 1._rt / (gamma_boost * gamma_boost));
+        } else {
+            pp.query("v_galilean", m_v_galilean);
+        }
+        // Scale the Galilean/comoving velocity by the speed of light
         for (int i=0; i<3; i++) m_v_galilean[i] *= PhysConst::c;
         for (int i=0; i<3; i++) m_v_comoving[i] *= PhysConst::c;
 
@@ -855,7 +897,25 @@ WarpX::BackwardCompatibility ()
     }
     if (ppw.queryarr("load_balance_int", backward_strings)){
         amrex::Abort("warpx.load_balance_int is no longer a valid option. "
-                     "Please use the renamed option warpx.load_balance_intervals instead.");
+                     "Please use the renamed option algo.load_balance_intervals instead.");
+    }
+    if (ppw.queryarr("load_balance_intervals", backward_strings)){
+        amrex::Abort("warpx.load_balance_intervals is no longer a valid option. "
+                     "Please use the renamed option algo.load_balance_intervals instead.");
+    }
+
+    amrex::Real backward_Real;
+    if (ppw.query("load_balance_efficiency_ratio_threshold", backward_Real)){
+        amrex::Abort("warpx.load_balance_efficiency_ratio_threshold is not supported anymore. "
+                     "Please use the renamed option algo.load_balance_efficiency_ratio_threshold.");
+    }
+    if (ppw.query("load_balance_with_sfc", backward_int)){
+        amrex::Abort("warpx.load_balance_with_sfc is not supported anymore. "
+                     "Please use the renamed option algo.load_balance_with_sfc.");
+    }
+    if (ppw.query("load_balance_knapsack_factor", backward_Real)){
+        amrex::Abort("warpx.load_balance_knapsack_factor is not supported anymore. "
+                     "Please use the renamed option algo.load_balance_knapsack_factor.");
     }
     if (ppw.queryarr("override_sync_int", backward_strings)){
         amrex::Abort("warpx.override_sync_int is no longer a valid option. "
@@ -937,15 +997,31 @@ WarpX::ClearLevel (int lev)
     rho_cp[lev].reset();
 
     costs[lev].reset();
+    load_balance_efficiency[lev] = -1;
 }
 
 void
 WarpX::AllocLevelData (int lev, const BoxArray& ba, const DistributionMapping& dm)
 {
+#ifdef AMREX_USE_EB
+    m_field_factory[lev] = amrex::makeEBFabFactory(Geom(lev), ba, dm,
+                                             {1,1,1}, // Not clear how many ghost cells we need yet
+                                             amrex::EBSupport::full);
+#else
+    m_field_factory[lev] = std::make_unique<FArrayBoxFactory>();
+#endif
 
     bool aux_is_nodal = (field_gathering_algo == GatheringAlgo::MomentumConserving);
 
+#if   (AMREX_SPACEDIM == 2)
+    amrex::RealVect dx = {WarpX::CellSize(lev)[0], WarpX::CellSize(lev)[2]};
+#elif (AMREX_SPACEDIM == 3)
+    amrex::RealVect dx = {WarpX::CellSize(lev)[0], WarpX::CellSize(lev)[1], WarpX::CellSize(lev)[2]};
+#endif
+
     guard_cells.Init(
+        dt[lev],
+        dx,
         do_subcycling,
         WarpX::use_fdtd_nci_corr,
         do_nodal,
@@ -959,7 +1035,8 @@ WarpX::AllocLevelData (int lev, const BoxArray& ba, const DistributionMapping& d
         maxLevel(),
         WarpX::m_v_galilean,
         WarpX::m_v_comoving,
-        safe_guard_cells);
+        safe_guard_cells,
+        WarpX::do_electrostatic);
 
     if (mypc->nSpeciesDepositOnMainGrid() && n_current_deposition_buffer == 0) {
         n_current_deposition_buffer = 1;
@@ -1345,6 +1422,7 @@ WarpX::AllocLevelMFs (int lev, const BoxArray& ba, const DistributionMapping& dm
     if (load_balance_intervals.isActivated())
     {
         costs[lev] = std::make_unique<LayoutData<Real>>(ba, dm);
+        load_balance_efficiency[lev] = -1;
     }
 }
 
@@ -1529,6 +1607,18 @@ WarpX::getPMLdirections() const
         }
     }
     return dirsWithPML;
+}
+
+amrex::LayoutData<amrex::Real>*
+WarpX::getCosts (int lev)
+{
+    if (m_instance)
+    {
+        return m_instance->costs[lev].get();
+    } else
+    {
+        return nullptr;
+    }
 }
 
 void
