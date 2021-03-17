@@ -173,7 +173,7 @@ WarpX::InitPML ()
 #ifdef WARPX_DIM_RZ
         do_pml_Lo_corrected[0] = 0; // no PML at r=0, in cylindrical geometry
 #endif
-        pml[0] = std::make_unique<PML>(boxArray(0), DistributionMap(0), &Geom(0), nullptr,
+        pml[0] = std::make_unique<PML>(0, boxArray(0), DistributionMap(0), &Geom(0), nullptr,
                              pml_ncell, pml_delta, amrex::IntVect::TheZeroVector(),
                              dt[0], nox_fft, noy_fft, noz_fft, do_nodal,
                              do_dive_cleaning, do_moving_window,
@@ -188,7 +188,7 @@ WarpX::InitPML ()
                 do_pml_Lo_MR[0] = 0;
             }
 #endif
-            pml[lev] = std::make_unique<PML>(boxArray(lev), DistributionMap(lev),
+            pml[lev] = std::make_unique<PML>(lev, boxArray(lev), DistributionMap(lev),
                                    &Geom(lev), &Geom(lev-1),
                                    pml_ncell, pml_delta, refRatio(lev-1),
                                    dt[lev], nox_fft, noy_fft, noz_fft, do_nodal,
@@ -302,6 +302,16 @@ WarpX::InitLevelData (int lev, Real /*time*/)
         if (lev > 0)
            current_cp[lev][i]->setVal(0.0);
 
+        // Initialize aux MultiFabs on level 0
+        if (lev == 0) {
+            Bfield_aux[lev][i]->setVal(0.0);
+            Efield_aux[lev][i]->setVal(0.0);
+            if (fft_do_time_averaging) {
+                Bfield_avg_aux[lev][i]->setVal(0.0);
+                Efield_avg_aux[lev][i]->setVal(0.0);
+            }
+        }
+
         if (B_ext_grid_s == "constant" || B_ext_grid_s == "default") {
            Bfield_fp[lev][i]->setVal(B_external_grid[i]);
            if (fft_do_time_averaging) {
@@ -330,7 +340,6 @@ WarpX::InitLevelData (int lev, Real /*time*/)
                   Efield_avg_aux[lev][i]->setVal(E_external_grid[i]);
                   Efield_avg_cp[lev][i]->setVal(E_external_grid[i]);
               }
-
            }
         }
     }
